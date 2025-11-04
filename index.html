@@ -6,8 +6,6 @@
     <title>Oyun.Hub - En Yüksek Skor & Tam Çarpışma</title>
     
     <style>
-        /* (CSS Kodları önceki versiyonlardan korunmuştur) */
-        
         /* Ana Sayfa Stilleri */
         body {
             display: flex; flex-direction: column; align-items: center; min-height: 100vh;
@@ -18,15 +16,16 @@
         /* Canvas Stilleri */
         #gameCanvas {
             border: 6px solid #333; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
-            background-color: #e0f7fa; margin-bottom: 40px;
+            background-color: #e0f7fa; 
+            /* Reklam kaldırıldığı için üst boşluk ayarlandı */
+            margin-top: 20px; 
+            margin-bottom: 40px;
         }
         
         /* Başlık Stili */
         h1 { color: #333; margin: 20px 0; font-size: 2.5em; }
 
-        /* Reklam Alanı */
-        .ad-placeholder { margin-bottom: 25px; text-align: center; width: 700px; }
-        .ad-placeholder > div { border: 2px dashed #FFA07A; padding: 20px; background-color: #FFF8DC; min-height: 100px; }
+        /* REKLAM ALANI STİLLERİ KALDIRILDI */
 
         /* BAŞLAT BUTONU STİLİ */
         #startButton {
@@ -75,13 +74,6 @@
 
     <div id="congratsMessage"></div>
 
-    <div class="ad-placeholder">
-        <div>
-            <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2228534515366250"
-     crossorigin="anonymous"></script>
-        </div>
-    </div>
-    
     <div class="game-container">
         
         <button id="startButton" onclick="startGame()">Oyuna Başla (Space)</button>
@@ -92,10 +84,10 @@
     <div class="content-area">
         
         <h2>🚀 Hakkımızda</h2>
-        <p><strong>Oyun.Hub</strong>, basit, hızlı ve eğlenceli tarayıcı oyunlarını tek bir merkezde toplamayı amaçlayan bir platformdur. Amacımız, karmaşık kurulumlara gerek kalmadan, sadece bir tıkla nostaljik oyun keyfini cihazınıza taşımaktır. Bu "Top ve Raket" oyunumuz ile reflekslerinizi test edin ve en yüksek skoru yapmaya çalışın!</p>
+        <p><strong>Oyun.Hub</strong>, basit, hızlı ve eğlenceli tarayıcı oyunlarını tek bir merkezde toplamayı amaçlayan bir platformdur. Amacımız, karmaşık kurulumlara gerek kalmadan, sadece bir tıkla nostaljik oyun keyfini cihazınıza taşımaktır. Bu "Top ve Raket" oyunumuz ile reflekslerinizi test edin ve en yüksek skoru yapmaya çalışın.</p>
 
         <h2>🛡️ Gizlilik Politikası</h2>
-        <p>Oyun.Hub, kullanıcı gizliliğine büyük önem vermektedir. Bu basit oyun, kişisel verilerinizi toplamaz. Ancak, sitede gösterilen üçüncü taraf reklam sağlayıcıları (örn: Google AdSense) çerez kullanabilir. Daha fazla bilgi için lütfen ilgili reklam sağlayıcının gizlilik politikasını inceleyin.</p>
+        <p>Oyun.Hub, kullanıcı gizliliğine büyük önem vermektedir. Bu basit oyun, kişisel verilerinizi toplamaz. Sadece tarayıcınızın yerel depolama alanını (Local Storage) kullanarak en yüksek skorunuzu kaydeder.</p>
         
         <h2>✉️ İletişim</h2>
         <p>Görüşleriniz, önerileriniz veya teknik destek talepleriniz için bize ulaşabilirsiniz.</p>
@@ -176,7 +168,6 @@
         // --- Olay Dinleyicileri ---
         document.addEventListener("keydown", keyDownHandler, false);
         document.addEventListener("keyup", keyUpHandler, false);
-        // Fare dinleyicisini doğrudan draw döngüsünden ayırdık
         document.addEventListener("mousemove", mouseMoveHandler, false); 
 
         function keyDownHandler(e) {
@@ -194,7 +185,6 @@
             else if (e.key == "Left" || e.key == "ArrowLeft" || e.key == "a" || e.key == "A") leftPressed = false;
         }
 
-        // FARE KONTROLÜ (Sadece paddleX'i günceller)
         function mouseMoveHandler(e) {
             if (!gameStarted) return;
             
@@ -204,7 +194,6 @@
                 if (newPaddleX < 0) newPaddleX = 0;
                 if (newPaddleX + paddleWidth > canvas.width) newPaddleX = canvas.width - paddleWidth;
                 
-                // Raket pozisyonunu direkt güncelle
                 paddleX = newPaddleX;
             }
         }
@@ -284,7 +273,7 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // --- 1. Klavye ile Raket Hareketi (Sadece tuşlara basılıyorsa çalışır) ---
+            // --- 1. Klavye ile Raket Hareketi ---
             var paddleSpeed = 7;
             if (rightPressed) {
                 paddleX += paddleSpeed;
@@ -307,18 +296,14 @@
             if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) dx = -dx;
             if (y + dy < ballRadius) dy = -dy; 
 
-            // Raket Çarpışma Kontrolü (DÜZELTİLDİ)
-            // Topun alt kenarı raketin üst kenarına yaklaştıysa
+            // Raket Çarpışma Kontrolü
             if (y + ballRadius >= paddleY && y + ballRadius <= paddleY + paddleHeight) {
                 
-                // Topun yatay pozisyonu raketin üzerindeyse
                 if (x > paddleX - ballRadius && x < paddleX + paddleWidth + ballRadius) {
                     
-                    // Topun yönü aşağı doğruysa (Yüzey çarpışması)
                     if (dy > 0) {
-                         dy = -dy; // Yönü ters çevir (Sıçra!)
+                         dy = -dy; 
                          
-                         // Skor ve Dinamiklik
                          score += 5; 
                          dx *= 1.02; dy *= 1.02;
                          ballColorHue = (ballColorHue + 10) % 360; 
@@ -329,8 +314,6 @@
                             nextTebrikScore += 100;
                         }
                     }
-                    // NOT: Yan çarpışmaları bu mantıkta üst çarpışmaya dahil ediyoruz. 
-                    // Yüksek hızlarda topun yanlardan geçmesini önlerken üstten sekmeyi garanti eder.
                 } 
             }
             
@@ -349,5 +332,4 @@
         init(); 
     </script>
 </body>
-
 </html>
