@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Oyun.Hub - Dinamik Paddle & Efektler</title>
 <style>
-/* CSS KISMI DEĞİŞMEDİ - SADECE JAVASCRIPT GÜNCELLENDİ */
+/* CSS KISMI MOBİL UYUMLULUK İÇİN GÜNCELLENDİ */
 body {display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;background-color:#f0f0f0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding-bottom:50px;}
 #gameCanvas {border:6px solid #333;box-shadow:0 0 30px rgba(0,0,0,0.5);background-color:#e0f7fa;margin-top:20px;margin-bottom:40px;
     max-width: 95vw; /* Mobil Ekranın %95'ini kapla */
-    height: auto;
+    height: auto; /* Oranı koru */
 }
 h1 {color:#333;margin:20px 0;font-size:2.5em;}
 #startButton {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:18px 35px;font-size:1.6em;background-color:#4CAF50;color:white;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,0.2);transition:background-color 0.3s, transform 0.1s;z-index:10;opacity:0.9;}
@@ -99,20 +99,18 @@ var gameOverSound = new Audio("https://freesound.org/data/previews/331/331912_32
 
 // --- KONTROL DEĞİŞKENLERİ ---
 var touchStartX = 0; 
-var canvasRect = canvas.getBoundingClientRect(); // Kanvasın güncel pozisyonunu saklar
+var canvasRect = canvas.getBoundingClientRect(); // Kanvasın güncel tarayıcıdaki konumunu saklar
 
 // --- RESONSIVE VE HAREKET DÜZELTMELERİ İÇİN KANVAS BOYUTUNU GÜNCELLEME ---
 
 function updateCanvasDimensions() {
-    // Canvas'ın CSS boyutlarını alır
+    // Kanvasın tarayıcıdaki güncel konumunu ve boyutlarını al
     canvasRect = canvas.getBoundingClientRect();
-    // Raket Y pozisyonunu yeniden hesaplar (Eğer canvas height dinamikse gerekli)
     paddleY = canvas.height - CONFIG.PADDLE_HEIGHT - CONFIG.PADDLE_BOTTOM_MARGIN;
 }
 
 window.addEventListener('resize', updateCanvasDimensions);
 updateCanvasDimensions(); // Başlangıçta çağır
-
 
 // --- ANA OYUN FONKSİYONLARI ---
 
@@ -145,7 +143,6 @@ function startGame() {
     if (gameStarted) return;
     startButton.style.display = 'none';
     
-    // OYUN BAŞLARKEN TOPU KESİN KONUMLANDIR
     x = canvas.width / 2;
     y = paddleY - CONFIG.BALL_RADIUS;
     dx = CONFIG.INITIAL_DX;
@@ -202,19 +199,21 @@ function keyUpHandler(e) {
 function mouseMoveHandler(e) {
     if (!gameStarted) return;
     
-    // Kanvasın sol tarafına göre konum hesaplama (Paddle'ın tam kenarlara gitmesi için)
-    var relativeX = e.clientX - canvasRect.left; 
-    var gameWidth = canvasRect.width; 
+    // Tarayıcıdaki fare pozisyonunu kanvasın başlangıcına göre hesapla (CSS pikseli)
+    var clientX = e.clientX;
+    var relativeX = clientX - canvasRect.left; 
 
-    // Konumu kanvasın piksel boyutlarına ölçekle
-    var scaledRelativeX = (relativeX / gameWidth) * canvas.width;
+    // Konumu, Kanvasın Çizim Alanı (700px) ile Görünür Alanı arasındaki orana göre ölçekle
+    var scaleFactor = canvas.width / canvasRect.width;
+    var scaledX = relativeX * scaleFactor;
 
-    if (scaledRelativeX > 0 && scaledRelativeX < canvas.width) {
-        paddleX = Math.max(0, Math.min(scaledRelativeX - paddleWidth / 2, canvas.width - paddleWidth));
+    if (scaledX > 0 && scaledX < canvas.width) {
+        // Raket, Kanvasın tüm çizim genişliğinde hareket eder (0'dan 700'e)
+        paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
     }
 }
 
-// --- DOKUNMATİK KONTROLLER (Mobil) ---
+// --- DOKUNMATİK KONTROLLER (Mobil: Çerçeve ve Hareket Düzeltmesi) ---
 canvas.addEventListener('touchstart', e => {
     if (!gameStarted) startGame();
     if (e.touches.length > 1) {
@@ -222,151 +221,69 @@ canvas.addEventListener('touchstart', e => {
         return;
     }
     e.preventDefault(); 
+    updateCanvasDimensions(); // Başlangıçta güncel boyutları al
     touchStartX = e.touches[0].clientX;
-    updateCanvasDimensions(); // Yeni dokunma başladığında kanvas boyutunu tekrar al
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
     if (!gameStarted) return;
     e.preventDefault(); 
     
-    var currentTouchX = e.touches[0].clientX;
-    var deltaX = currentTouchX - touchStartX;
+    // touchmove'da mutlak konum (scaledX) kullanılarak hareketin tam kenara ulaşması garanti edilir
+    var clientX = e.touches[0].clientX;
+    var relativeX = clientX - canvasRect.left; 
     
-    // Hareket miktarını kanvasın gerçek piksel boyutlarına ölçekle
-    var movementFactor = canvas.width / canvasRect.width;
-    
-    paddleX += deltaX * 1.5 * movementFactor; 
-    paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
-    
-    touchStartX = currentTouchX;
+    var scaleFactor = canvas.width / canvasRect.width;
+    var scaledX = relativeX * scaleFactor; 
+
+    // Raketin hareketini mutlak scaledX'e göre ayarla
+    if (scaledX > 0 && scaledX < canvas.width) {
+        paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
+    }
+    // touchStartX'i güncelleme, çünkü mutlak konum kullanıyoruz (göreceli değil)
 }, { passive: false });
 
 
 // --- ÇİZİM VE LOGİK FONKSİYONLARI ---
-function drawBall() {
-    ctx.beginPath();
-    ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);
-    ctx.fillStyle = `hsl(${ballColorHue}, 100%, 50%)`;
-    ctx.fill();
-    ctx.closePath();
-}
 
-function drawPaddle() {
-    ctx.beginPath();
-    ctx.rect(paddleX, paddleY, paddleWidth, CONFIG.PADDLE_HEIGHT);
-    ctx.fillStyle = "#000";
-    ctx.fill();
-    ctx.closePath();
-}
-
-function drawScoreAndHighScore() {
-    ctx.font = "16px Arial";
-    ctx.fillStyle = "#000";
-    ctx.fillText("Skor: " + score, 8, 20);
-    
-    var hsText = "En Yüksek Skor: " + highScore;
-    ctx.fillText(hsText, canvas.width - ctx.measureText(hsText).width - 8, 20);
-}
-
-function showCongratsMessage(currentScore) {
-    congratsMessage.textContent = `TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;
-    congratsMessage.classList.add('visible-message');
-    setTimeout(() => {
-        congratsMessage.classList.remove('visible-message');
-    }, 3000);
-}
-
-function updatePaddleSize() {
-    var min = CONFIG.MIN_PADDLE_WIDTH,
-        max = CONFIG.INITIAL_PADDLE_WIDTH;
-    var factor = (score % 150) / 150;
-    paddleWidth = max - (max - min) * factor; 
-    
-    if (factor < 0.02) paddleWidth = max; 
-}
-
-// --- EFEKT SÜRESİ DÜZELTİLDİ: BİR SONRAKİ EŞİĞE KADAR KALIR ---
-function startEffect(type) {
-    if (effectTimeoutId) clearTimeout(effectTimeoutId); 
-    activeEffect = type;
-    effectTriggered[type] = true;
-    
-    // effectTimeoutId artık kullanılmıyor, efekt bir sonraki tetikleyiciye kadar kalır.
-    effectTimeoutId = null; 
-}
-
+function drawBall() {ctx.beginPath();ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);ctx.fillStyle = `hsl(${ballColorHue}, 100%, 50%)`;ctx.fill();ctx.closePath();}
+function drawPaddle() {ctx.beginPath();ctx.rect(paddleX, paddleY, paddleWidth, CONFIG.PADDLE_HEIGHT);ctx.fillStyle = "#000";ctx.fill();ctx.closePath();}
+function drawScoreAndHighScore() {ctx.font = "16px Arial";ctx.fillStyle = "#000";ctx.fillText("Skor: " + score, 8, 20);var hsText = "En Yüksek Skor: " + highScore;ctx.fillText(hsText, canvas.width - ctx.measureText(hsText).width - 8, 20);}
+function showCongratsMessage(currentScore) {congratsMessage.textContent = `TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;congratsMessage.classList.add('visible-message');setTimeout(() => {congratsMessage.classList.remove('visible-message');}, 3000);}
+function updatePaddleSize() {var min = CONFIG.MIN_PADDLE_WIDTH, max = CONFIG.INITIAL_PADDLE_WIDTH;var factor = (score % 150) / 150;paddleWidth = max - (max - min) * factor; if (factor < 0.02) paddleWidth = max;}
+function startEffect(type) {if (effectTimeoutId) clearTimeout(effectTimeoutId); activeEffect = type;effectTriggered[type] = true;effectTimeoutId = null;}
 function drawEffects() {
     if (!activeEffect) return;
-    
     ctx.save(); 
     ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     switch (activeEffect) {
-        case "stars":
-            for (var i = 0; i < 50; i++) {
-                ctx.beginPath();
-                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);
-                ctx.fillStyle = "white";
-                ctx.fill();
-            }
-            break;
-        case "volcano":
-            for (var i = 0; i < 20; i++) {
-                ctx.beginPath();
-                ctx.arc(Math.random() * canvas.width, canvas.height - Math.random() * 50, Math.random() * 10, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; 
-                ctx.fill();
-            }
-            break;
-        case "rain":
-            for (var i = 0; i < 100; i++) {
-                ctx.beginPath();
-                var rx = Math.random() * canvas.width;
-                var ry = Math.random() * canvas.height;
-                ctx.moveTo(rx, ry);
-                ctx.lineTo(rx + 2, ry + 10);
-                ctx.strokeStyle = "rgba(0, 0, 255, 0.6)"; 
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            }
-            break;
+        case "stars":for (var i = 0; i < 50; i++) {ctx.beginPath();ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);ctx.fillStyle = "white";ctx.fill();}break;
+        case "volcano":for (var i = 0; i < 20; i++) {ctx.beginPath();ctx.arc(Math.random() * canvas.width, canvas.height - Math.random() * 50, Math.random() * 10, 0, Math.PI * 2);ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; ctx.fill();}break;
+        case "rain":for (var i = 0; i < 100; i++) {ctx.beginPath();var rx = Math.random() * canvas.width;var ry = Math.random() * canvas.height;ctx.moveTo(rx, ry);ctx.lineTo(rx + 2, ry + 10);ctx.strokeStyle = "rgba(0, 0, 255, 0.6)"; ctx.lineWidth = 1;ctx.stroke();}break;
     }
     ctx.restore(); 
 }
 
-// --- TOP ÇARPIŞMASI DÜZELTİLDİ: Orijinal basit sekme mantığına geri dönüldü ---
 function checkPaddleCollision() {
-    // Topun bir sonraki adımda paddle hizasında olup olmadığını kontrol et
     if (y + CONFIG.BALL_RADIUS + dy >= paddleY) {
-        // Topun yatay olarak paddle'ın üzerinde olup olmadığını kontrol et
         if (x > paddleX && x < paddleX + paddleWidth) {
-            
             if (dy > 0) {
                 hitSound.currentTime = 0;
                 hitSound.play().catch(() => {});
-                
                 score += CONFIG.SCORE_PER_HIT;
                 ballColorHue = (ballColorHue + 10) % 360;
                 updatePaddleSize();
-                
-                // Orijinal basit sekme mantığına dönüldü: Sadece dikey yönü ters çevir.
                 dy = -dy; 
-                
-                // Yatay hızı koruyarak genel hızı artır
                 var speedIncrease = 1.02;
                 dx *= speedIncrease;
                 dy *= speedIncrease;
-                
-                // Maksimum hız sınırı kontrolü
                 var currentSpeed = Math.sqrt(dx * dx + dy * dy);
                 if (currentSpeed > CONFIG.MAX_SPEED) {
                     var scaleFactor = CONFIG.MAX_SPEED / currentSpeed;
                     dx *= scaleFactor;
                     dy *= scaleFactor;
                 }
-                
                 if (score >= nextTebrikScore && nextTebrikScore <= 1000) {
                     showCongratsMessage(nextTebrikScore);
                     nextTebrikScore += 100;
@@ -384,9 +301,8 @@ function gameLoop(timeNow) {
 
     var deltaTime = timeNow - timeLastFrame;
     timeLastFrame = timeNow;
-    
     var factor = deltaTime / (1000 / 60); 
-    factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR); // Hız fırlamasını önle
+    factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -397,14 +313,12 @@ function gameLoop(timeNow) {
     } else if (leftPressed) {
         paddleX -= paddleMovement;
     }
-    // Raketin tam kenarlara ulaşması garanti altına alındı
     paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
 
-    // 2. Top Konumu
+    // 2. Top Konumu ve Çarpışmalar (Mantık aynı)
     x += dx * factor;
     y += dy * factor;
 
-    // 3. Kenar Çarpışmaları (Buradaki dx, dy ters çevirme mantığı korundu)
     if (x + dx * factor > canvas.width - CONFIG.BALL_RADIUS || x + dx * factor < CONFIG.BALL_RADIUS) {
         dx = -dx;
     }
@@ -414,20 +328,18 @@ function gameLoop(timeNow) {
 
     checkPaddleCollision();
 
-    // 4. Oyun Bitti Kontrolü
     if (y - CONFIG.BALL_RADIUS > canvas.height) {
         gameOver();
         return; 
     }
     
-    // 5. Skor Seviyesine Göre Efektler
+    // 3. Efektler ve Çizim
     for (var s in effectScoreMap) {
         if (score >= s && !effectTriggered[effectScoreMap[s]]) {
             startEffect(effectScoreMap[s]);
         }
     }
 
-    // 6. Çizim Sırası
     drawBall();
     drawPaddle();
     drawScoreAndHighScore();
