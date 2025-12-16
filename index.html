@@ -70,7 +70,8 @@ const CONFIG = {
     INITIAL_DY: -4,
     PADDLE_SPEED: 7,
     SCORE_PER_HIT: 10,
-    MAX_DELTA_FACTOR: 3 
+    MAX_DELTA_FACTOR: 3,
+    PADDLE_SMOOTHING_FACTOR: 0.2 // Hatalı hızlı girişi yumuşatır
 };
 
 var canvas = document.getElementById("gameCanvas");
@@ -95,6 +96,7 @@ var gameOverSound = new Audio("https://freesound.org/data/previews/331/331912_32
 
 var touchStartX = 0; 
 var canvasRect = canvas.getBoundingClientRect(); 
+var targetPaddleX; // Yeni: Raketin ulaşmak istediği yumuşatılmamış konum
 
 function updateCanvasDimensions() {
     canvasRect = canvas.getBoundingClientRect();
@@ -111,6 +113,7 @@ function init() {
     dy = CONFIG.INITIAL_DY;
     paddleWidth = CONFIG.INITIAL_PADDLE_WIDTH;
     paddleX = (canvas.width - paddleWidth) / 2;
+    targetPaddleX = paddleX; // Başlangıçta hedef ile mevcut konumu eşitle
     score = 0;
     nextTebrikScore = 100;
     ballColorHue = 200;
@@ -195,7 +198,8 @@ function mouseMoveHandler(e) {
     var scaledX = relativeX * scaleFactor;
 
     if (scaledX > 0 && scaledX < canvas.width) {
-        paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
+        // Hedef konumu ayarla
+        targetPaddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
     }
 }
 
@@ -220,10 +224,10 @@ canvas.addEventListener('touchmove', e => {
     var scaleFactor = canvas.width / canvasRect.width;
     var scaledX = relativeX * scaleFactor; 
 
-    // paddleX hesaplama ve sınırlandırmayı garanti altına alma
-    var potentialPaddleX = scaledX - paddleWidth / 2;
-    paddleX = Math.max(0, Math.min(potentialPaddleX, canvas.width - paddleWidth));
-    
+    if (scaledX > 0 && scaledX < canvas.width) {
+        // Hedef konumu ayarla
+        targetPaddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
@@ -374,16 +378,29 @@ function gameLoop(timeNow) {
     var factor = deltaTime / (1000 / 60); 
     factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR);
 
+    // 1. ÇİZİM TEMİZLİĞİ GARANTİSİ
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ctx.fillStyle = 'rgba(0, 0, 0, 0)'; 
+    // ctx.fillRect(0, 0, canvas.width, canvas.height); // (Tekrar temizlik performansı düşürdüğü için sadece clearRect yeterli olmalı)
 
+    // 2. Paddle Hareket (Yumuşatma ve Klavye Kontrolü)
+
+    // Klavye kontrolü varsa hedef X'i güncelle
     var paddleMovement = CONFIG.PADDLE_SPEED * factor;
     if (rightPressed) {
-        paddleX += paddleMovement;
+        targetPaddleX += paddleMovement;
     } else if (leftPressed) {
-        paddleX -= paddleMovement;
+        targetPaddleX -= paddleMovement;
     }
-    paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
-
+    
+    // Klavye veya dokunma ile belirlenen hedef X'i sınırla
+    targetPaddleX = Math.max(0, Math.min(targetPaddleX, canvas.width - paddleWidth));
+    
+    // YUMUŞATMA: Mevcut konumu, hedefe doğru yavaşça hareket ettir
+    var deltaX = targetPaddleX - paddleX;
+    paddleX += deltaX * CONFIG.PADDLE_SMOOTHING_FACTOR;
+    
+    // 3. Top Hareketi
     x += dx * factor;
     y += dy * factor;
 
