@@ -56,172 +56,364 @@ h1 {color:#333;margin:20px 0;font-size:2.5em;}
 </div>
 
 <script>
-var canvas=document.getElementById("gameCanvas");
-var ctx=canvas.getContext("2d");
-var startButton=document.getElementById("startButton");
-var gameOverModal=document.getElementById("gameOverModal");
-var finalScoreText=document.getElementById("finalScoreText");
-var congratsMessage=document.getElementById("congratsMessage");
+// --- KONFİGÜRASYON VE SABİTLER ---
+const CONFIG = {
+    BALL_RADIUS: 10,
+    PADDLE_HEIGHT: 10,
+    PADDLE_BOTTOM_MARGIN: 15,
+    INITIAL_PADDLE_WIDTH: 120,
+    MIN_PADDLE_WIDTH: 60,
+    MAX_SPEED: 12, 
+    INITIAL_DX: 4,
+    INITIAL_DY: -4,
+    PADDLE_SPEED: 7,
+    EFFECT_DURATION_MS: 5000, 
+    SCORE_PER_HIT: 10,
+    MAX_DELTA_FACTOR: 3 // Sekme değişimlerinde patlamayı önlemek için
+};
 
-var ballRadius=10,paddleHeight=10,PADDLE_BOTTOM_MARGIN=15,INITIAL_PADDLE_WIDTH=120,paddleY;
-var paddleWidth,x,y,dx,dy,paddleX,score,gameInterval;
-var rightPressed=false,leftPressed=false,nextTebrikScore,ballColorHue;
-var highScore=localStorage.getItem('oyunhub_highScore')||0;
-var gameStarted=false;
-var minPaddleWidth=60,maxPaddleWidth=INITIAL_PADDLE_WIDTH;
+var canvas = document.getElementById("gameCanvas");
+var ctx = canvas.getContext("2d");
+var startButton = document.getElementById("startButton");
+var gameOverModal = document.getElementById("gameOverModal");
+var finalScoreText = document.getElementById("finalScoreText");
+var congratsMessage = document.getElementById("congratsMessage");
+
+// --- OYUN DURUM DEĞİŞKENLERİ ---
+var x, y, dx, dy, paddleX, paddleWidth, score, nextTebrikScore, ballColorHue, timeLastFrame, animationFrameId; 
+var rightPressed = false, leftPressed = false, gameStarted = false;
+var highScore = localStorage.getItem('oyunhub_highScore') || 0;
+var paddleY = canvas.height - CONFIG.PADDLE_HEIGHT - CONFIG.PADDLE_BOTTOM_MARGIN;
+var activeEffect = null;
+var effectTimeoutId = null;
+
+var effectScoreMap = { 100: "stars", 300: "volcano", 500: "rain" };
+var effectTriggered = {};
 
 // Sesler
-var hitSound=new Audio("https://freesound.org/data/previews/26/26102_49228-lq.mp3");
-var gameOverSound=new Audio("https://freesound.org/data/previews/331/331912_3248244-lq.mp3");
+var hitSound = new Audio("https://freesound.org/data/previews/26/26102_49228-lq.mp3");
+var gameOverSound = new Audio("https://freesound.org/data/previews/331/331912_3248244-lq.mp3");
 
-paddleY=canvas.height-paddleHeight-PADDLE_BOTTOM_MARGIN;
-var activeEffect=null;
-var effectScoreMap={100:"stars",300:"volcano",500:"rain"};
-var effectTriggered={};
+// --- KONTROL DEĞİŞKENLERİ ---
+var touchStartX = 0; 
 
-function init(){
-  x=canvas.width/2;y=paddleY-ballRadius;
-  dx=4;dy=-4;
-  paddleWidth=INITIAL_PADDLE_WIDTH;
-  paddleX=(canvas.width-paddleWidth)/2;
-  score=0;nextTebrikScore=100;
-  ballColorHue=200;gameStarted=false;
-  if(gameInterval) clearInterval(gameInterval);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  gameOverModal.style.display='none';
-  congratsMessage.classList.remove('visible-message');
-  activeEffect=null; effectTriggered={};
-  drawBall();drawPaddle();drawScoreAndHighScore();
+// --- ANA OYUN FONKSİYONLARI ---
+
+function init() {
+    // Başlangıç değerleri
+    x = canvas.width / 2;
+    y = paddleY - CONFIG.BALL_RADIUS;
+    dx = CONFIG.INITIAL_DX;
+    dy = CONFIG.INITIAL_DY;
+    paddleWidth = CONFIG.INITIAL_PADDLE_WIDTH;
+    paddleX = (canvas.width - paddleWidth) / 2;
+    score = 0;
+    nextTebrikScore = 100;
+    ballColorHue = 200;
+    gameStarted = false;
+    
+    // Temizleme ve arayüzü sıfırlama
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    gameOverModal.style.display = 'none';
+    congratsMessage.classList.remove('visible-message');
+    
+    // Efektleri sıfırla
+    activeEffect = null;
+    effectTriggered = {};
+    if (effectTimeoutId) clearTimeout(effectTimeoutId);
+
+    // Başlangıç ekranını çiz 
+    drawBall();
+    drawPaddle();
+    drawScoreAndHighScore();
 }
 
-function startGame(){
-  if(gameStarted) return;
-  startButton.style.display='none';
-  gameStarted=true;
-  hitSound.play(); hitSound.pause(); hitSound.currentTime=0;
-  gameInterval=setInterval(draw,1000/60);
+function startGame() {
+    if (gameStarted) return;
+    startButton.style.display = 'none';
+    
+    // OYUN BAŞLARKEN TOPU TEKRAR KONUMLANDIR (Gözden kaybolmayı önler)
+    x = canvas.width / 2;
+    y = paddleY - CONFIG.BALL_RADIUS;
+    dx = CONFIG.INITIAL_DX;
+    dy = CONFIG.INITIAL_DY;
+
+    gameStarted = true;
+    
+    hitSound.play().catch(() => {}); hitSound.pause(); hitSound.currentTime = 0;
+    
+    timeLastFrame = performance.now();
+    gameLoop(timeLastFrame); // İlk çağrıyı yap
 }
 
-document.addEventListener("keydown",keyDownHandler,false);
-document.addEventListener("keyup",keyUpHandler,false);
-document.addEventListener("mousemove",mouseMoveHandler,false);
+function gameOver() {
+    if (!gameStarted) return; 
+    gameStarted = false;
+    cancelAnimationFrame(animationFrameId); 
 
-function keyDownHandler(e){
-  if(e.key===" "&&!gameStarted){e.preventDefault();startGame();}
-  if(["Right","ArrowRight","d","D"].includes(e.key)) rightPressed=true;
-  if(["Left","ArrowLeft","a","A"].includes(e.key)) leftPressed=true;
-}
-function keyUpHandler(e){
-  if(["Right","ArrowRight","d","D"].includes(e.key)) rightPressed=false;
-  if(["Left","ArrowLeft","a","A"].includes(e.key)) leftPressed=false;
-}
-function mouseMoveHandler(e){
-  if(!gameStarted) return;
-  var relativeX=e.clientX-canvas.offsetLeft;
-  if(relativeX>0&&relativeX<canvas.width){
-    paddleX=Math.max(0,Math.min(relativeX-paddleWidth/2,canvas.width-paddleWidth));
-  }
-}
-
-// --- Dokunmatik kontroller ---
-canvas.addEventListener('touchstart', e=>{
-    if(!gameStarted) startGame();
-    var touch = e.touches[0];
-    paddleX = Math.max(0, Math.min(touch.clientX - paddleWidth/2, canvas.width - paddleWidth));
-}, false);
-
-canvas.addEventListener('touchmove', e=>{
-    var touch = e.touches[0];
-    paddleX = Math.max(0, Math.min(touch.clientX - paddleWidth/2, canvas.width - paddleWidth));
-    e.preventDefault();
-}, false);
-
-function drawBall(){ctx.beginPath();ctx.arc(x,y,ballRadius,0,Math.PI*2);ctx.fillStyle=`hsl(${ballColorHue},100%,50%)`;ctx.fill();ctx.closePath();}
-function drawPaddle(){ctx.beginPath();ctx.rect(paddleX,paddleY,paddleWidth,paddleHeight);ctx.fillStyle="#000";ctx.fill();ctx.closePath();}
-function drawScoreAndHighScore(){ctx.font="16px Arial";ctx.fillStyle="#000";ctx.fillText("Skor: "+score,8,20);ctx.fillText("En Yüksek Skor: "+highScore,canvas.width-ctx.measureText("En Yüksek Skor: "+highScore).width-8,20);}
-function showCongratsMessage(currentScore){congratsMessage.textContent=`TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;congratsMessage.classList.add('visible-message');setTimeout(()=>{congratsMessage.classList.remove('visible-message');},3000);}
-
-function updatePaddleSize(){
-  var min=minPaddleWidth,max=maxPaddleWidth;
-  var factor=(score%150)/150;
-  paddleWidth=max-(max-min)*factor;
-  if(factor<0.02) paddleWidth=max;
-}
-
-// Paddle çarpınca ses fonksiyonu
-function hitPaddle(){
-    dy=-dy;
-    score+=10;
-    dx*=1.02; dy*=1.02; 
-    ballColorHue=(ballColorHue+10)%360;
-    updatePaddleSize();
-    if(hitSound.paused){hitSound.play().catch(()=>{});}
-}
-
-function startEffect(type){activeEffect=type; effectTriggered[type]=true;}
-function drawEffects(){
-  if(!activeEffect) return;
-  switch(activeEffect){
-    case "stars":
-      ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(0,0,canvas.width,canvas.height);
-      for(var i=0;i<50;i++){ctx.beginPath();ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*2,0,Math.PI*2);ctx.fillStyle="white";ctx.fill();}
-      break;
-    case "volcano":
-      ctx.fillStyle="rgba(100,0,0,0.3)";ctx.fillRect(0,0,canvas.width,canvas.height);
-      for(var i=0;i<20;i++){ctx.beginPath();ctx.arc(Math.random()*canvas.width,canvas.height-Math.random()*50,Math.random()*10,0,Math.PI*2);ctx.fillStyle="orange";ctx.fill();}
-      break;
-    case "rain":
-      ctx.fillStyle="rgba(0,0,0,0.2)";ctx.fillRect(0,0,canvas.width,canvas.height);
-      for(var i=0;i<100;i++){ctx.beginPath();ctx.moveTo(Math.random()*canvas.width,Math.random()*canvas.height);ctx.lineTo(Math.random()*canvas.width,Math.random()*canvas.height+10);ctx.strokeStyle="blue";ctx.lineWidth=1;ctx.stroke();}
-      break;
-  }
-}
-
-function gameOver(){
-  clearInterval(gameInterval);
-  gameOverSound.play();
-  if(score>highScore){highScore=score;localStorage.setItem('oyunhub_highScore',highScore);}
-  drawScoreAndHighScore();
-  finalScoreText.textContent="Skorunuz: "+score;
-  gameOverModal.style.display='flex';
-}
-
-function restartGame(){gameOverModal.style.display='none';startButton.style.display='block';init();}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // paddle hareket
-  var paddleSpeed=7;
-  if(rightPressed){paddleX+=paddleSpeed;}else if(leftPressed){paddleX-=paddleSpeed;}
-  paddleX=Math.max(0,Math.min(paddleX,canvas.width-paddleWidth));
-
-  // top konumu
-  x+=dx;y+=dy;
-
-  // kenar çarpışmaları
-  if(x+dx>canvas.width-ballRadius||x+dx<ballRadius) dx=-dx;
-  if(y+dy<ballRadius) dy=-dy;
-
-  // paddle çarpışması
-  if(y+ballRadius>=paddleY && y+ballRadius<=paddleY+paddleHeight){
-    if(x>paddleX-ballRadius && x<paddleX+paddleWidth+ballRadius && dy>0){
-        hitPaddle();
-        if(score>=nextTebrikScore && nextTebrikScore<=1000){ showCongratsMessage(nextTebrikScore); nextTebrikScore+=100; }
+    gameOverSound.play().catch(() => {});
+    
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('oyunhub_highScore', highScore);
     }
-  }
-
-  if(y-ballRadius>canvas.height){gameOver();return;}
-
-  // skor seviyelerine göre efekt
-  for(var s in effectScoreMap){
-    if(score>=s && !effectTriggered[effectScoreMap[s]]) startEffect(effectScoreMap[s]);
-  }
-
-  drawBall();drawPaddle();drawScoreAndHighScore();
-  drawEffects();
+    
+    drawScoreAndHighScore();
+    finalScoreText.textContent = "Skorunuz: " + score;
+    gameOverModal.style.display = 'flex';
 }
 
+function restartGame() {
+    gameOverModal.style.display = 'none';
+    startButton.style.display = 'block';
+    init();
+}
+
+// --- GİRİŞ İŞLEYİCİLERİ ---
+document.addEventListener("keydown", keyDownHandler, false);
+document.addEventListener("keyup", keyUpHandler, false);
+document.addEventListener("mousemove", mouseMoveHandler, false);
+
+function keyDownHandler(e) {
+    if (e.key === " " && !gameStarted) {
+        e.preventDefault();
+        startGame();
+    }
+    if (["Right", "ArrowRight", "d", "D"].includes(e.key)) rightPressed = true;
+    if (["Left", "ArrowLeft", "a", "A"].includes(e.key)) leftPressed = true;
+}
+function keyUpHandler(e) {
+    if (["Right", "ArrowRight", "d", "D"].includes(e.key)) rightPressed = false;
+    if (["Left", "ArrowLeft", "a", "A"].includes(e.key)) leftPressed = false;
+}
+function mouseMoveHandler(e) {
+    if (!gameStarted) return;
+    var relativeX = e.clientX - canvas.offsetLeft;
+    if (relativeX > 0 && relativeX < canvas.width) {
+        paddleX = Math.max(0, Math.min(relativeX - paddleWidth / 2, canvas.width - paddleWidth));
+    }
+}
+
+// --- DOKUNMATİK KONTROLLER (Mobil) ---
+canvas.addEventListener('touchstart', e => {
+    if (!gameStarted) startGame();
+    if (e.touches.length > 1) {
+        e.preventDefault(); 
+        return;
+    }
+    e.preventDefault(); 
+    touchStartX = e.touches[0].clientX;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    if (!gameStarted) return;
+    e.preventDefault(); 
+    var currentTouchX = e.touches[0].clientX;
+    var deltaX = currentTouchX - touchStartX;
+    
+    paddleX += deltaX * 1.5; 
+    paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
+    
+    touchStartX = currentTouchX;
+}, { passive: false });
+
+
+// --- ÇİZİM VE LOGİK FONKSİYONLARI (Fonksiyonların içeriği değişmedi) ---
+
+function drawBall() {
+    ctx.beginPath();
+    ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${ballColorHue}, 100%, 50%)`;
+    ctx.fill();
+    ctx.closePath();
+}
+
+function drawPaddle() {
+    ctx.beginPath();
+    ctx.rect(paddleX, paddleY, paddleWidth, CONFIG.PADDLE_HEIGHT);
+    ctx.fillStyle = "#000";
+    ctx.fill();
+    ctx.closePath();
+}
+
+function drawScoreAndHighScore() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#000";
+    ctx.fillText("Skor: " + score, 8, 20);
+    
+    var hsText = "En Yüksek Skor: " + highScore;
+    ctx.fillText(hsText, canvas.width - ctx.measureText(hsText).width - 8, 20);
+}
+
+function showCongratsMessage(currentScore) {
+    congratsMessage.textContent = `TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;
+    congratsMessage.classList.add('visible-message');
+    setTimeout(() => {
+        congratsMessage.classList.remove('visible-message');
+    }, 3000);
+}
+
+function updatePaddleSize() {
+    var min = CONFIG.MIN_PADDLE_WIDTH,
+        max = CONFIG.INITIAL_PADDLE_WIDTH;
+    var factor = (score % 150) / 150;
+    paddleWidth = max - (max - min) * factor; 
+    
+    if (factor < 0.02) paddleWidth = max; 
+}
+
+function startEffect(type) {
+    if (effectTimeoutId) clearTimeout(effectTimeoutId); 
+    activeEffect = type;
+    effectTriggered[type] = true;
+    
+    effectTimeoutId = setTimeout(() => {
+        activeEffect = null;
+    }, CONFIG.EFFECT_DURATION_MS);
+}
+
+function drawEffects() {
+    if (!activeEffect) return;
+    
+    ctx.save(); 
+    ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    switch (activeEffect) {
+        case "stars":
+            for (var i = 0; i < 50; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);
+                ctx.fillStyle = "white";
+                ctx.fill();
+            }
+            break;
+        case "volcano":
+            for (var i = 0; i < 20; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, canvas.height - Math.random() * 50, Math.random() * 10, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; 
+                ctx.fill();
+            }
+            break;
+        case "rain":
+            for (var i = 0; i < 100; i++) {
+                ctx.beginPath();
+                var rx = Math.random() * canvas.width;
+                var ry = Math.random() * canvas.height;
+                ctx.moveTo(rx, ry);
+                ctx.lineTo(rx + 2, ry + 10);
+                ctx.strokeStyle = "rgba(0, 0, 255, 0.6)"; 
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            break;
+    }
+    ctx.restore(); 
+}
+
+function checkPaddleCollision() {
+    if (y + CONFIG.BALL_RADIUS + dy >= paddleY) {
+        if (x > paddleX && x < paddleX + paddleWidth) {
+            
+            if (dy > 0) {
+                hitSound.currentTime = 0;
+                hitSound.play().catch(() => {});
+                
+                score += CONFIG.SCORE_PER_HIT;
+                ballColorHue = (ballColorHue + 10) % 360;
+                updatePaddleSize();
+                
+                var relativeIntersectX = (x - paddleX) - (paddleWidth / 2);
+                var normalizedRelativeIntersectionX = (relativeIntersectX / (paddleWidth / 2));
+                
+                dx = normalizedRelativeIntersectionX * (CONFIG.INITIAL_DX * 2); 
+                dy = -dy; 
+                
+                var speedIncrease = 1.02;
+                dx *= speedIncrease;
+                dy *= speedIncrease;
+                
+                var currentSpeed = Math.sqrt(dx * dx + dy * dy);
+                if (currentSpeed > CONFIG.MAX_SPEED) {
+                    var scaleFactor = CONFIG.MAX_SPEED / currentSpeed;
+                    dx *= scaleFactor;
+                    dy *= scaleFactor;
+                }
+                
+                if (score >= nextTebrikScore && nextTebrikScore <= 1000) {
+                    showCongratsMessage(nextTebrikScore);
+                    nextTebrikScore += 100;
+                }
+            }
+        }
+    }
+}
+
+
+// --- ANA OYUN DÖNGÜSÜ ---
+
+function gameLoop(timeNow) {
+    if (!gameStarted) return;
+
+    // Delta Time ve Faktör Hesaplama
+    var deltaTime = timeNow - timeLastFrame;
+    timeLastFrame = timeNow;
+    
+    var factor = deltaTime / (1000 / 60); 
+    // FAKTÖR KONTROLÜ: Sekme değişimlerinde topun fırlamasını önler
+    factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR);
+
+    // 1. Temizle
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Paddle Hareket
+    var paddleMovement = CONFIG.PADDLE_SPEED * factor;
+    if (rightPressed) {
+        paddleX += paddleMovement;
+    } else if (leftPressed) {
+        paddleX -= paddleMovement;
+    }
+    paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
+
+    // 3. Top Konumu
+    x += dx * factor;
+    y += dy * factor;
+
+    // 4. Çarpışmalar
+    if (x + dx * factor > canvas.width - CONFIG.BALL_RADIUS || x + dx * factor < CONFIG.BALL_RADIUS) {
+        dx = -dx;
+    }
+    if (y + dy * factor < CONFIG.BALL_RADIUS) {
+        dy = -dy;
+    }
+
+    checkPaddleCollision();
+
+    // 5. Oyun Bitti Kontrolü (Top kanvasın altından tamamen çıktığında)
+    if (y - CONFIG.BALL_RADIUS > canvas.height) {
+        gameOver();
+        return; 
+    }
+    
+    // 6. Skor Seviyesine Göre Efektler
+    for (var s in effectScoreMap) {
+        if (score >= s && !effectTriggered[effectScoreMap[s]]) {
+            startEffect(effectScoreMap[s]);
+        }
+    }
+
+    // 7. Çizim Sırası
+    drawBall();
+    drawPaddle();
+    drawScoreAndHighScore();
+    drawEffects(); 
+
+    // 8. Döngüyü Yenile
+    animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// Başlangıçta initleştir
 init();
 </script>
 </body>
