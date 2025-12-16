@@ -316,9 +316,14 @@ function drawEffects() {
 
 function checkPaddleCollision() {
     const nextY = y + CONFIG.BALL_RADIUS + dy;
+    const ballBottom = y + CONFIG.BALL_RADIUS; // Topun en alt noktası
     
-    if (dy > 0 && nextY >= paddleY) {
+    // Koşul 1: Top aşağı iniyor olmalı (dy > 0)
+    // Koşul 2: Topun alt noktası, raketin üst hizasının hemen yukarısında veya hizasında olmalı (Tünellemeyi engeller)
+    // Koşul 3: Topun bir sonraki adımı raketin hizasını geçiyor olmalı (Çarpışmanın gerçekleşeceği garanti edilir)
+    if (dy > 0 && ballBottom <= paddleY && nextY >= paddleY) {
         
+        // Yatay Kontrol
         if (x > paddleX && x < paddleX + paddleWidth) {
             
             hitSound.currentTime = 0;
@@ -328,14 +333,16 @@ function checkPaddleCollision() {
             ballColorHue = (ballColorHue + 10) % 360;
             updatePaddleSize();
             
+            // Dinamik Açı Hesaplaması
             var intersectionX = x - paddleX; 
             var paddleCenter = paddleWidth / 2;
             var relativeIntersectX = intersectionX - paddleCenter; 
             var normalizedRelativeIntersectionX = relativeIntersectX / paddleCenter * 0.8; 
             
             dx = normalizedRelativeIntersectionX * (Math.abs(CONFIG.INITIAL_DX) * 2); 
-            dy = -Math.abs(dy); 
+            dy = -Math.abs(dy); // Daima yukarı gitmesini garantile
             
+            // Hızlanma
             var speedIncrease = 1.02;
             dx *= speedIncrease;
             dy *= speedIncrease;
@@ -352,6 +359,7 @@ function checkPaddleCollision() {
                 nextTebrikScore += 100;
             }
 
+            // Çarpışma gerçekleştikten sonra topun Y pozisyonunu raketin hemen üzerine sabitle.
             y = paddleY - CONFIG.BALL_RADIUS;
         }
     }
