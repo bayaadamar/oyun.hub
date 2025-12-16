@@ -5,11 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Oyun.Hub - Dinamik Paddle & Efektler</title>
 <style>
-/* CSS KISMI MOBİL UYUMLULUK İÇİN GÜNCELLENDİ */
 body {display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;background-color:#f0f0f0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding-bottom:50px;}
 #gameCanvas {border:6px solid #333;box-shadow:0 0 30px rgba(0,0,0,0.5);background-color:#e0f7fa;margin-top:20px;margin-bottom:40px;
-    max-width: 95vw; /* Mobil Ekranın %95'ini kapla */
-    height: auto; /* Oranı koru */
+    max-width: 95vw; 
+    height: auto;
 }
 h1 {color:#333;margin:20px 0;font-size:2.5em;}
 #startButton {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:18px 35px;font-size:1.6em;background-color:#4CAF50;color:white;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,0.2);transition:background-color 0.3s, transform 0.1s;z-index:10;opacity:0.9;}
@@ -60,7 +59,6 @@ h1 {color:#333;margin:20px 0;font-size:2.5em;}
 </div>
 
 <script>
-// --- KONFİGÜRASYON VE SABİTLER ---
 const CONFIG = {
     BALL_RADIUS: 10,
     PADDLE_HEIGHT: 10,
@@ -82,7 +80,6 @@ var gameOverModal = document.getElementById("gameOverModal");
 var finalScoreText = document.getElementById("finalScoreText");
 var congratsMessage = document.getElementById("congratsMessage");
 
-// --- OYUN DURUM DEĞİŞKENLERİ ---
 var x, y, dx, dy, paddleX, paddleWidth, score, nextTebrikScore, ballColorHue, timeLastFrame, animationFrameId; 
 var rightPressed = false, leftPressed = false, gameStarted = false;
 var highScore = localStorage.getItem('oyunhub_highScore') || 0;
@@ -93,26 +90,19 @@ var effectTimeoutId = null;
 var effectScoreMap = { 100: "stars", 300: "volcano", 500: "rain" };
 var effectTriggered = {};
 
-// Sesler
 var hitSound = new Audio("https://freesound.org/data/previews/26/26102_49228-lq.mp3");
 var gameOverSound = new Audio("https://freesound.org/data/previews/331/331912_3248244-lq.mp3");
 
-// --- KONTROL DEĞİŞKENLERİ ---
 var touchStartX = 0; 
-var canvasRect = canvas.getBoundingClientRect(); // Kanvasın güncel tarayıcıdaki konumunu saklar
-
-// --- RESONSIVE VE HAREKET DÜZELTMELERİ İÇİN KANVAS BOYUTUNU GÜNCELLEME ---
+var canvasRect = canvas.getBoundingClientRect(); 
 
 function updateCanvasDimensions() {
-    // Kanvasın tarayıcıdaki güncel konumunu ve boyutlarını al
     canvasRect = canvas.getBoundingClientRect();
     paddleY = canvas.height - CONFIG.PADDLE_HEIGHT - CONFIG.PADDLE_BOTTOM_MARGIN;
 }
 
 window.addEventListener('resize', updateCanvasDimensions);
-updateCanvasDimensions(); // Başlangıçta çağır
-
-// --- ANA OYUN FONKSİYONLARI ---
+updateCanvasDimensions(); 
 
 function init() {
     x = canvas.width / 2;
@@ -179,7 +169,6 @@ function restartGame() {
     init();
 }
 
-// --- GİRİŞ İŞLEYİCİLERİ ---
 document.addEventListener("keydown", keyDownHandler, false);
 document.addEventListener("keyup", keyUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
@@ -199,21 +188,17 @@ function keyUpHandler(e) {
 function mouseMoveHandler(e) {
     if (!gameStarted) return;
     
-    // Tarayıcıdaki fare pozisyonunu kanvasın başlangıcına göre hesapla (CSS pikseli)
     var clientX = e.clientX;
     var relativeX = clientX - canvasRect.left; 
 
-    // Konumu, Kanvasın Çizim Alanı (700px) ile Görünür Alanı arasındaki orana göre ölçekle
     var scaleFactor = canvas.width / canvasRect.width;
     var scaledX = relativeX * scaleFactor;
 
     if (scaledX > 0 && scaledX < canvas.width) {
-        // Raket, Kanvasın tüm çizim genişliğinde hareket eder (0'dan 700'e)
         paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
     }
 }
 
-// --- DOKUNMATİK KONTROLLER (Mobil: Çerçeve ve Hareket Düzeltmesi) ---
 canvas.addEventListener('touchstart', e => {
     if (!gameStarted) startGame();
     if (e.touches.length > 1) {
@@ -221,7 +206,7 @@ canvas.addEventListener('touchstart', e => {
         return;
     }
     e.preventDefault(); 
-    updateCanvasDimensions(); // Başlangıçta güncel boyutları al
+    updateCanvasDimensions(); 
     touchStartX = e.touches[0].clientX;
 }, { passive: false });
 
@@ -229,84 +214,160 @@ canvas.addEventListener('touchmove', e => {
     if (!gameStarted) return;
     e.preventDefault(); 
     
-    // touchmove'da mutlak konum (scaledX) kullanılarak hareketin tam kenara ulaşması garanti edilir
     var clientX = e.touches[0].clientX;
     var relativeX = clientX - canvasRect.left; 
     
     var scaleFactor = canvas.width / canvasRect.width;
     var scaledX = relativeX * scaleFactor; 
 
-    // Raketin hareketini mutlak scaledX'e göre ayarla
     if (scaledX > 0 && scaledX < canvas.width) {
         paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
     }
-    // touchStartX'i güncelleme, çünkü mutlak konum kullanıyoruz (göreceli değil)
 }, { passive: false });
 
+function drawBall() {
+    ctx.beginPath();
+    ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${ballColorHue}, 100%, 50%)`;
+    ctx.fill();
+    ctx.closePath();
+}
 
-// --- ÇİZİM VE LOGİK FONKSİYONLARI ---
+function drawPaddle() {
+    ctx.beginPath();
+    ctx.rect(paddleX, paddleY, paddleWidth, CONFIG.PADDLE_HEIGHT);
+    ctx.fillStyle = "#000";
+    ctx.fill();
+    ctx.closePath();
+}
 
-function drawBall() {ctx.beginPath();ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);ctx.fillStyle = `hsl(${ballColorHue}, 100%, 50%)`;ctx.fill();ctx.closePath();}
-function drawPaddle() {ctx.beginPath();ctx.rect(paddleX, paddleY, paddleWidth, CONFIG.PADDLE_HEIGHT);ctx.fillStyle = "#000";ctx.fill();ctx.closePath();}
-function drawScoreAndHighScore() {ctx.font = "16px Arial";ctx.fillStyle = "#000";ctx.fillText("Skor: " + score, 8, 20);var hsText = "En Yüksek Skor: " + highScore;ctx.fillText(hsText, canvas.width - ctx.measureText(hsText).width - 8, 20);}
-function showCongratsMessage(currentScore) {congratsMessage.textContent = `TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;congratsMessage.classList.add('visible-message');setTimeout(() => {congratsMessage.classList.remove('visible-message');}, 3000);}
-function updatePaddleSize() {var min = CONFIG.MIN_PADDLE_WIDTH, max = CONFIG.INITIAL_PADDLE_WIDTH;var factor = (score % 150) / 150;paddleWidth = max - (max - min) * factor; if (factor < 0.02) paddleWidth = max;}
-function startEffect(type) {if (effectTimeoutId) clearTimeout(effectTimeoutId); activeEffect = type;effectTriggered[type] = true;effectTimeoutId = null;}
+function drawScoreAndHighScore() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#000";
+    ctx.fillText("Skor: " + score, 8, 20);
+    
+    var hsText = "En Yüksek Skor: " + highScore;
+    ctx.fillText(hsText, canvas.width - ctx.measureText(hsText).width - 8, 20);
+}
+
+function showCongratsMessage(currentScore) {
+    congratsMessage.textContent = `TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;
+    congratsMessage.classList.add('visible-message');
+    setTimeout(() => {
+        congratsMessage.classList.remove('visible-message');
+    }, 3000);
+}
+
+function updatePaddleSize() {
+    var min = CONFIG.MIN_PADDLE_WIDTH,
+        max = CONFIG.INITIAL_PADDLE_WIDTH;
+    var factor = (score % 150) / 150;
+    paddleWidth = max - (max - min) * factor; 
+    
+    if (factor < 0.02) paddleWidth = max; 
+}
+
+function startEffect(type) {
+    if (effectTimeoutId) clearTimeout(effectTimeoutId); 
+    activeEffect = type;
+    effectTriggered[type] = true;
+    effectTimeoutId = null; 
+}
+
 function drawEffects() {
     if (!activeEffect) return;
+    
     ctx.save(); 
     ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     switch (activeEffect) {
-        case "stars":for (var i = 0; i < 50; i++) {ctx.beginPath();ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);ctx.fillStyle = "white";ctx.fill();}break;
-        case "volcano":for (var i = 0; i < 20; i++) {ctx.beginPath();ctx.arc(Math.random() * canvas.width, canvas.height - Math.random() * 50, Math.random() * 10, 0, Math.PI * 2);ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; ctx.fill();}break;
-        case "rain":for (var i = 0; i < 100; i++) {ctx.beginPath();var rx = Math.random() * canvas.width;var ry = Math.random() * canvas.height;ctx.moveTo(rx, ry);ctx.lineTo(rx + 2, ry + 10);ctx.strokeStyle = "rgba(0, 0, 255, 0.6)"; ctx.lineWidth = 1;ctx.stroke();}break;
+        case "stars":
+            for (var i = 0; i < 50; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);
+                ctx.fillStyle = "white";
+                ctx.fill();
+            }
+            break;
+        case "volcano":
+            for (var i = 0; i < 20; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, canvas.height - Math.random() * 50, Math.random() * 10, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 165, 0, 0.8)"; 
+                ctx.fill();
+            }
+            break;
+        case "rain":
+            for (var i = 0; i < 100; i++) {
+                ctx.beginPath();
+                var rx = Math.random() * canvas.width;
+                var ry = Math.random() * canvas.height;
+                ctx.moveTo(rx, ry);
+                ctx.lineTo(rx + 2, ry + 10);
+                ctx.strokeStyle = "rgba(0, 0, 255, 0.6)"; 
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            break;
     }
     ctx.restore(); 
 }
 
 function checkPaddleCollision() {
-    if (y + CONFIG.BALL_RADIUS + dy >= paddleY) {
+    const nextY = y + CONFIG.BALL_RADIUS + dy;
+    
+    if (dy > 0 && nextY >= paddleY) {
+        
         if (x > paddleX && x < paddleX + paddleWidth) {
-            if (dy > 0) {
-                hitSound.currentTime = 0;
-                hitSound.play().catch(() => {});
-                score += CONFIG.SCORE_PER_HIT;
-                ballColorHue = (ballColorHue + 10) % 360;
-                updatePaddleSize();
-                dy = -dy; 
-                var speedIncrease = 1.02;
-                dx *= speedIncrease;
-                dy *= speedIncrease;
-                var currentSpeed = Math.sqrt(dx * dx + dy * dy);
-                if (currentSpeed > CONFIG.MAX_SPEED) {
-                    var scaleFactor = CONFIG.MAX_SPEED / currentSpeed;
-                    dx *= scaleFactor;
-                    dy *= scaleFactor;
-                }
-                if (score >= nextTebrikScore && nextTebrikScore <= 1000) {
-                    showCongratsMessage(nextTebrikScore);
-                    nextTebrikScore += 100;
-                }
+            
+            hitSound.currentTime = 0;
+            hitSound.play().catch(() => {});
+            
+            score += CONFIG.SCORE_PER_HIT;
+            ballColorHue = (ballColorHue + 10) % 360;
+            updatePaddleSize();
+            
+            var intersectionX = x - paddleX; 
+            var paddleCenter = paddleWidth / 2;
+            var relativeIntersectX = intersectionX - paddleCenter; 
+            var normalizedRelativeIntersectionX = relativeIntersectX / paddleCenter * 0.8; 
+            
+            dx = normalizedRelativeIntersectionX * (Math.abs(CONFIG.INITIAL_DX) * 2); 
+            dy = -Math.abs(dy); 
+            
+            var speedIncrease = 1.02;
+            dx *= speedIncrease;
+            dy *= speedIncrease;
+            
+            var currentSpeed = Math.sqrt(dx * dx + dy * dy);
+            if (currentSpeed > CONFIG.MAX_SPEED) {
+                var scaleFactor = CONFIG.MAX_SPEED / currentSpeed;
+                dx *= scaleFactor;
+                dy *= scaleFactor;
             }
+            
+            if (score >= nextTebrikScore && nextTebrikScore <= 1000) {
+                showCongratsMessage(nextTebrikScore);
+                nextTebrikScore += 100;
+            }
+
+            y = paddleY - CONFIG.BALL_RADIUS;
         }
     }
 }
-
-
-// --- ANA OYUN DÖNGÜSÜ ---
 
 function gameLoop(timeNow) {
     if (!gameStarted) return;
 
     var deltaTime = timeNow - timeLastFrame;
     timeLastFrame = timeNow;
+    
     var factor = deltaTime / (1000 / 60); 
     factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Paddle Hareket
     var paddleMovement = CONFIG.PADDLE_SPEED * factor;
     if (rightPressed) {
         paddleX += paddleMovement;
@@ -315,7 +376,6 @@ function gameLoop(timeNow) {
     }
     paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
 
-    // 2. Top Konumu ve Çarpışmalar (Mantık aynı)
     x += dx * factor;
     y += dy * factor;
 
@@ -333,7 +393,6 @@ function gameLoop(timeNow) {
         return; 
     }
     
-    // 3. Efektler ve Çizim
     for (var s in effectScoreMap) {
         if (score >= s && !effectTriggered[effectScoreMap[s]]) {
             startEffect(effectScoreMap[s]);
@@ -348,7 +407,6 @@ function gameLoop(timeNow) {
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// Başlangıçta initleştir
 init();
 </script>
 </body>
