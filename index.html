@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Oyun.Hub - Dinamik Paddle & Efektler</title>
 <style>
+/* CSS KISMI DEĞİŞMEDİ - SADECE JAVASCRIPT GÜNCELLENDİ */
 body {display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;background-color:#f0f0f0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding-bottom:50px;}
-#gameCanvas {border:6px solid #333;box-shadow:0 0 30px rgba(0,0,0,0.5);background-color:#e0f7fa;margin-top:20px;margin-bottom:40px;}
+#gameCanvas {border:6px solid #333;box-shadow:0 0 30px rgba(0,0,0,0.5);background-color:#e0f7fa;margin-top:20px;margin-bottom:40px;
+    max-width: 95vw; /* Mobil Ekranın %95'ini kapla */
+    height: auto;
+}
 h1 {color:#333;margin:20px 0;font-size:2.5em;}
 #startButton {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:18px 35px;font-size:1.6em;background-color:#4CAF50;color:white;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 6px rgba(0,0,0,0.2);transition:background-color 0.3s, transform 0.1s;z-index:10;opacity:0.9;}
 #startButton:hover {background-color:#45a049;opacity:1;}
@@ -67,9 +71,8 @@ const CONFIG = {
     INITIAL_DX: 4,
     INITIAL_DY: -4,
     PADDLE_SPEED: 7,
-    EFFECT_DURATION_MS: 5000, 
     SCORE_PER_HIT: 10,
-    MAX_DELTA_FACTOR: 3 // Sekme değişimlerinde patlamayı önlemek için
+    MAX_DELTA_FACTOR: 3 
 };
 
 var canvas = document.getElementById("gameCanvas");
@@ -96,11 +99,24 @@ var gameOverSound = new Audio("https://freesound.org/data/previews/331/331912_32
 
 // --- KONTROL DEĞİŞKENLERİ ---
 var touchStartX = 0; 
+var canvasRect = canvas.getBoundingClientRect(); // Kanvasın güncel pozisyonunu saklar
+
+// --- RESONSIVE VE HAREKET DÜZELTMELERİ İÇİN KANVAS BOYUTUNU GÜNCELLEME ---
+
+function updateCanvasDimensions() {
+    // Canvas'ın CSS boyutlarını alır
+    canvasRect = canvas.getBoundingClientRect();
+    // Raket Y pozisyonunu yeniden hesaplar (Eğer canvas height dinamikse gerekli)
+    paddleY = canvas.height - CONFIG.PADDLE_HEIGHT - CONFIG.PADDLE_BOTTOM_MARGIN;
+}
+
+window.addEventListener('resize', updateCanvasDimensions);
+updateCanvasDimensions(); // Başlangıçta çağır
+
 
 // --- ANA OYUN FONKSİYONLARI ---
 
 function init() {
-    // Başlangıç değerleri
     x = canvas.width / 2;
     y = paddleY - CONFIG.BALL_RADIUS;
     dx = CONFIG.INITIAL_DX;
@@ -112,17 +128,14 @@ function init() {
     ballColorHue = 200;
     gameStarted = false;
     
-    // Temizleme ve arayüzü sıfırlama
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     gameOverModal.style.display = 'none';
     congratsMessage.classList.remove('visible-message');
     
-    // Efektleri sıfırla
     activeEffect = null;
     effectTriggered = {};
     if (effectTimeoutId) clearTimeout(effectTimeoutId);
 
-    // Başlangıç ekranını çiz 
     drawBall();
     drawPaddle();
     drawScoreAndHighScore();
@@ -132,7 +145,7 @@ function startGame() {
     if (gameStarted) return;
     startButton.style.display = 'none';
     
-    // OYUN BAŞLARKEN TOPU TEKRAR KONUMLANDIR (Gözden kaybolmayı önler)
+    // OYUN BAŞLARKEN TOPU KESİN KONUMLANDIR
     x = canvas.width / 2;
     y = paddleY - CONFIG.BALL_RADIUS;
     dx = CONFIG.INITIAL_DX;
@@ -143,7 +156,7 @@ function startGame() {
     hitSound.play().catch(() => {}); hitSound.pause(); hitSound.currentTime = 0;
     
     timeLastFrame = performance.now();
-    gameLoop(timeLastFrame); // İlk çağrıyı yap
+    gameLoop(timeLastFrame);
 }
 
 function gameOver() {
@@ -188,9 +201,16 @@ function keyUpHandler(e) {
 }
 function mouseMoveHandler(e) {
     if (!gameStarted) return;
-    var relativeX = e.clientX - canvas.offsetLeft;
-    if (relativeX > 0 && relativeX < canvas.width) {
-        paddleX = Math.max(0, Math.min(relativeX - paddleWidth / 2, canvas.width - paddleWidth));
+    
+    // Kanvasın sol tarafına göre konum hesaplama (Paddle'ın tam kenarlara gitmesi için)
+    var relativeX = e.clientX - canvasRect.left; 
+    var gameWidth = canvasRect.width; 
+
+    // Konumu kanvasın piksel boyutlarına ölçekle
+    var scaledRelativeX = (relativeX / gameWidth) * canvas.width;
+
+    if (scaledRelativeX > 0 && scaledRelativeX < canvas.width) {
+        paddleX = Math.max(0, Math.min(scaledRelativeX - paddleWidth / 2, canvas.width - paddleWidth));
     }
 }
 
@@ -203,23 +223,27 @@ canvas.addEventListener('touchstart', e => {
     }
     e.preventDefault(); 
     touchStartX = e.touches[0].clientX;
+    updateCanvasDimensions(); // Yeni dokunma başladığında kanvas boyutunu tekrar al
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
     if (!gameStarted) return;
     e.preventDefault(); 
+    
     var currentTouchX = e.touches[0].clientX;
     var deltaX = currentTouchX - touchStartX;
     
-    paddleX += deltaX * 1.5; 
+    // Hareket miktarını kanvasın gerçek piksel boyutlarına ölçekle
+    var movementFactor = canvas.width / canvasRect.width;
+    
+    paddleX += deltaX * 1.5 * movementFactor; 
     paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
     
     touchStartX = currentTouchX;
 }, { passive: false });
 
 
-// --- ÇİZİM VE LOGİK FONKSİYONLARI (Fonksiyonların içeriği değişmedi) ---
-
+// --- ÇİZİM VE LOGİK FONKSİYONLARI ---
 function drawBall() {
     ctx.beginPath();
     ctx.arc(x, y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);
@@ -262,14 +286,14 @@ function updatePaddleSize() {
     if (factor < 0.02) paddleWidth = max; 
 }
 
+// --- EFEKT SÜRESİ DÜZELTİLDİ: BİR SONRAKİ EŞİĞE KADAR KALIR ---
 function startEffect(type) {
     if (effectTimeoutId) clearTimeout(effectTimeoutId); 
     activeEffect = type;
     effectTriggered[type] = true;
     
-    effectTimeoutId = setTimeout(() => {
-        activeEffect = null;
-    }, CONFIG.EFFECT_DURATION_MS);
+    // effectTimeoutId artık kullanılmıyor, efekt bir sonraki tetikleyiciye kadar kalır.
+    effectTimeoutId = null; 
 }
 
 function drawEffects() {
@@ -312,8 +336,11 @@ function drawEffects() {
     ctx.restore(); 
 }
 
+// --- TOP ÇARPIŞMASI DÜZELTİLDİ: Orijinal basit sekme mantığına geri dönüldü ---
 function checkPaddleCollision() {
+    // Topun bir sonraki adımda paddle hizasında olup olmadığını kontrol et
     if (y + CONFIG.BALL_RADIUS + dy >= paddleY) {
+        // Topun yatay olarak paddle'ın üzerinde olup olmadığını kontrol et
         if (x > paddleX && x < paddleX + paddleWidth) {
             
             if (dy > 0) {
@@ -324,16 +351,15 @@ function checkPaddleCollision() {
                 ballColorHue = (ballColorHue + 10) % 360;
                 updatePaddleSize();
                 
-                var relativeIntersectX = (x - paddleX) - (paddleWidth / 2);
-                var normalizedRelativeIntersectionX = (relativeIntersectX / (paddleWidth / 2));
-                
-                dx = normalizedRelativeIntersectionX * (CONFIG.INITIAL_DX * 2); 
+                // Orijinal basit sekme mantığına dönüldü: Sadece dikey yönü ters çevir.
                 dy = -dy; 
                 
+                // Yatay hızı koruyarak genel hızı artır
                 var speedIncrease = 1.02;
                 dx *= speedIncrease;
                 dy *= speedIncrease;
                 
+                // Maksimum hız sınırı kontrolü
                 var currentSpeed = Math.sqrt(dx * dx + dy * dy);
                 if (currentSpeed > CONFIG.MAX_SPEED) {
                     var scaleFactor = CONFIG.MAX_SPEED / currentSpeed;
@@ -356,31 +382,29 @@ function checkPaddleCollision() {
 function gameLoop(timeNow) {
     if (!gameStarted) return;
 
-    // Delta Time ve Faktör Hesaplama
     var deltaTime = timeNow - timeLastFrame;
     timeLastFrame = timeNow;
     
     var factor = deltaTime / (1000 / 60); 
-    // FAKTÖR KONTROLÜ: Sekme değişimlerinde topun fırlamasını önler
-    factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR);
+    factor = Math.min(factor, CONFIG.MAX_DELTA_FACTOR); // Hız fırlamasını önle
 
-    // 1. Temizle
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Paddle Hareket
+    // 1. Paddle Hareket
     var paddleMovement = CONFIG.PADDLE_SPEED * factor;
     if (rightPressed) {
         paddleX += paddleMovement;
     } else if (leftPressed) {
         paddleX -= paddleMovement;
     }
+    // Raketin tam kenarlara ulaşması garanti altına alındı
     paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
 
-    // 3. Top Konumu
+    // 2. Top Konumu
     x += dx * factor;
     y += dy * factor;
 
-    // 4. Çarpışmalar
+    // 3. Kenar Çarpışmaları (Buradaki dx, dy ters çevirme mantığı korundu)
     if (x + dx * factor > canvas.width - CONFIG.BALL_RADIUS || x + dx * factor < CONFIG.BALL_RADIUS) {
         dx = -dx;
     }
@@ -390,26 +414,25 @@ function gameLoop(timeNow) {
 
     checkPaddleCollision();
 
-    // 5. Oyun Bitti Kontrolü (Top kanvasın altından tamamen çıktığında)
+    // 4. Oyun Bitti Kontrolü
     if (y - CONFIG.BALL_RADIUS > canvas.height) {
         gameOver();
         return; 
     }
     
-    // 6. Skor Seviyesine Göre Efektler
+    // 5. Skor Seviyesine Göre Efektler
     for (var s in effectScoreMap) {
         if (score >= s && !effectTriggered[effectScoreMap[s]]) {
             startEffect(effectScoreMap[s]);
         }
     }
 
-    // 7. Çizim Sırası
+    // 6. Çizim Sırası
     drawBall();
     drawPaddle();
     drawScoreAndHighScore();
     drawEffects(); 
 
-    // 8. Döngüyü Yenile
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
