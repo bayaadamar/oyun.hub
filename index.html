@@ -220,10 +220,17 @@ canvas.addEventListener('touchmove', e => {
     var scaleFactor = canvas.width / canvasRect.width;
     var scaledX = relativeX * scaleFactor; 
 
-    if (scaledX > 0 && scaledX < canvas.width) {
-        paddleX = Math.max(0, Math.min(scaledX - paddleWidth / 2, canvas.width - paddleWidth));
-    }
+    // paddleX hesaplama ve sınırlandırmayı garanti altına alma
+    var potentialPaddleX = scaledX - paddleWidth / 2;
+    paddleX = Math.max(0, Math.min(potentialPaddleX, canvas.width - paddleWidth));
+    
 }, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    rightPressed = false; 
+    leftPressed = false;
+}, { passive: false });
+
 
 function drawBall() {
     ctx.beginPath();
@@ -316,14 +323,10 @@ function drawEffects() {
 
 function checkPaddleCollision() {
     const nextY = y + CONFIG.BALL_RADIUS + dy;
-    const ballBottom = y + CONFIG.BALL_RADIUS; // Topun en alt noktası
+    const ballBottom = y + CONFIG.BALL_RADIUS; 
     
-    // Koşul 1: Top aşağı iniyor olmalı (dy > 0)
-    // Koşul 2: Topun alt noktası, raketin üst hizasının hemen yukarısında veya hizasında olmalı (Tünellemeyi engeller)
-    // Koşul 3: Topun bir sonraki adımı raketin hizasını geçiyor olmalı (Çarpışmanın gerçekleşeceği garanti edilir)
     if (dy > 0 && ballBottom <= paddleY && nextY >= paddleY) {
         
-        // Yatay Kontrol
         if (x > paddleX && x < paddleX + paddleWidth) {
             
             hitSound.currentTime = 0;
@@ -333,16 +336,14 @@ function checkPaddleCollision() {
             ballColorHue = (ballColorHue + 10) % 360;
             updatePaddleSize();
             
-            // Dinamik Açı Hesaplaması
             var intersectionX = x - paddleX; 
             var paddleCenter = paddleWidth / 2;
             var relativeIntersectX = intersectionX - paddleCenter; 
             var normalizedRelativeIntersectionX = relativeIntersectX / paddleCenter * 0.8; 
             
             dx = normalizedRelativeIntersectionX * (Math.abs(CONFIG.INITIAL_DX) * 2); 
-            dy = -Math.abs(dy); // Daima yukarı gitmesini garantile
+            dy = -Math.abs(dy); 
             
-            // Hızlanma
             var speedIncrease = 1.02;
             dx *= speedIncrease;
             dy *= speedIncrease;
@@ -359,7 +360,6 @@ function checkPaddleCollision() {
                 nextTebrikScore += 100;
             }
 
-            // Çarpışma gerçekleştikten sonra topun Y pozisyonunu raketin hemen üzerine sabitle.
             y = paddleY - CONFIG.BALL_RADIUS;
         }
     }
