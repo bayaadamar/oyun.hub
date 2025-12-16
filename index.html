@@ -36,7 +36,7 @@ h1 {color:#333;margin:20px 0;font-size:2.5em;}
 
 <div class="content-area">
 <h2>🚀 Hakkımızda</h2>
-<p><strong>Oyun.Hub</strong>, basit, hızlı ve eğlenceli tarayıcı oyunlarını tek bir merkezde toplamayı amaçlar. Bu "Top ve Raket" oyunumuz ile reflekslerinizi test edin ve en yüksek skoru yapmaya çalışın.</p>
+<p><strong>Oyun.Hub</strong>, basit, hızlı ve eğlenceli tarayıcı oyunlarını tek bir merkezde toplar. Bu "Top ve Raket" oyunu ile reflekslerinizi test edin ve en yüksek skoru yapmaya çalışın.</p>
 <h2>🛡️ Gizlilik Politikası</h2>
 <p>Oyun.Hub, kullanıcı gizliliğine önem verir. Sadece Local Storage ile en yüksek skor saklanır.</p>
 <h2>✉️ İletişim</h2>
@@ -74,7 +74,6 @@ var minPaddleWidth=60,maxPaddleWidth=INITIAL_PADDLE_WIDTH;
 var hitSound=new Audio("https://freesound.org/data/previews/26/26102_49228-lq.mp3");
 var gameOverSound=new Audio("https://freesound.org/data/previews/331/331912_3248244-lq.mp3");
 
-// Paddle efekt ve top hız kontrol
 paddleY=canvas.height-paddleHeight-PADDLE_BOTTOM_MARGIN;
 var activeEffect=null;
 var effectScoreMap={100:"stars",300:"volcano",500:"rain"};
@@ -99,7 +98,7 @@ function startGame(){
   if(gameStarted) return;
   startButton.style.display='none';
   gameStarted=true;
-  hitSound.play(); hitSound.pause(); hitSound.currentTime=0; // ses unlock
+  hitSound.play(); hitSound.pause(); hitSound.currentTime=0;
   gameInterval=setInterval(draw,1000/60);
 }
 
@@ -120,10 +119,22 @@ function mouseMoveHandler(e){
   if(!gameStarted) return;
   var relativeX=e.clientX-canvas.offsetLeft;
   if(relativeX>0&&relativeX<canvas.width){
-    var newPaddleX=relativeX-paddleWidth/2;
-    paddleX=Math.max(0,Math.min(newPaddleX,canvas.width-paddleWidth));
+    paddleX=Math.max(0,Math.min(relativeX-paddleWidth/2,canvas.width-paddleWidth));
   }
 }
+
+// --- Dokunmatik kontroller ---
+canvas.addEventListener('touchstart', e=>{
+    if(!gameStarted) startGame();
+    var touch = e.touches[0];
+    paddleX = Math.max(0, Math.min(touch.clientX - paddleWidth/2, canvas.width - paddleWidth));
+}, false);
+
+canvas.addEventListener('touchmove', e=>{
+    var touch = e.touches[0];
+    paddleX = Math.max(0, Math.min(touch.clientX - paddleWidth/2, canvas.width - paddleWidth));
+    e.preventDefault();
+}, false);
 
 function drawBall(){ctx.beginPath();ctx.arc(x,y,ballRadius,0,Math.PI*2);ctx.fillStyle=`hsl(${ballColorHue},100%,50%)`;ctx.fill();ctx.closePath();}
 function drawPaddle(){ctx.beginPath();ctx.rect(paddleX,paddleY,paddleWidth,paddleHeight);ctx.fillStyle="#000";ctx.fill();ctx.closePath();}
@@ -134,7 +145,17 @@ function updatePaddleSize(){
   var min=minPaddleWidth,max=maxPaddleWidth;
   var factor=(score%150)/150;
   paddleWidth=max-(max-min)*factor;
-  if(factor<0.02) paddleWidth=max; // küçükten eskiye dönsün
+  if(factor<0.02) paddleWidth=max;
+}
+
+// Paddle çarpınca ses fonksiyonu
+function hitPaddle(){
+    dy=-dy;
+    score+=10;
+    dx*=1.02; dy*=1.02; 
+    ballColorHue=(ballColorHue+10)%360;
+    updatePaddleSize();
+    if(hitSound.paused){hitSound.play().catch(()=>{});}
 }
 
 function startEffect(type){activeEffect=type; effectTriggered[type]=true;}
@@ -171,7 +192,8 @@ function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   // paddle hareket
-  var paddleSpeed=7;if(rightPressed){paddleX+=paddleSpeed;}else if(leftPressed){paddleX-=paddleSpeed;}
+  var paddleSpeed=7;
+  if(rightPressed){paddleX+=paddleSpeed;}else if(leftPressed){paddleX-=paddleSpeed;}
   paddleX=Math.max(0,Math.min(paddleX,canvas.width-paddleWidth));
 
   // top konumu
@@ -182,16 +204,10 @@ function draw(){
   if(y+dy<ballRadius) dy=-dy;
 
   // paddle çarpışması
-  if(y+ballRadius>=paddleY&&y+ballRadius<=paddleY+paddleHeight){
-    if(x>paddleX-ballRadius&&x<paddleX+paddleWidth+ballRadius){
-      if(dy>0){
-        dy=-dy;
-        score+=10;
-        dx*=1.02;dy*=1.02;ballColorHue=(ballColorHue+10)%360;
-        updatePaddleSize();
-        hitSound.play();
-        if(score>=nextTebrikScore && nextTebrikScore<=1000){showCongratsMessage(nextTebrikScore);nextTebrikScore+=100;}
-      }
+  if(y+ballRadius>=paddleY && y+ballRadius<=paddleY+paddleHeight){
+    if(x>paddleX-ballRadius && x<paddleX+paddleWidth+ballRadius && dy>0){
+        hitPaddle();
+        if(score>=nextTebrikScore && nextTebrikScore<=1000){ showCongratsMessage(nextTebrikScore); nextTebrikScore+=100; }
     }
   }
 
