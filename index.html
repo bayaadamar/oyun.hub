@@ -2,204 +2,224 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Oyun.Hub - Mobil & PC</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oyun.Hub - En Yüksek Skor & Tam Çarpışma</title>
+
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2228534515366250" crossorigin="anonymous"></script>
+
 <style>
-html, body {
-    margin:0; padding:0; width:100%; height:100%;
-    overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color:#f0f0f0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-}
-#gameCanvas {
-    background-color:#e0f7fa; border:4px solid #333;
-    box-shadow:0 0 15px rgba(0,0,0,0.3); touch-action:none;
-    width:100%; max-width:700px; height:auto;
-}
-#startButton {
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    padding:20px 40px; font-size:1.5em; border:none; border-radius:8px;
-    background-color:#4CAF50; color:white; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.2); z-index:10;
-}
-#startButton:active { transform:translate(-50%,-50%) scale(0.98); }
-#congratsMessage {
-    position:fixed; top:-50px; left:50%; transform:translateX(-50%);
-    background-color:#FFC107; color:#333; padding:10px 20px;
-    border-radius:5px; font-weight:bold; transition:top 0.5s, opacity 0.5s;
-    opacity:0; z-index:2000;
-}
-.visible-message { top:20px; opacity:1; }
-.modal-overlay {
-    position:fixed; top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.6); display:none; justify-content:center; align-items:center;
-    z-index:1000;
-}
-.modal-content {
-    background:white; padding:30px; border-radius:10px; text-align:center;
-    width:80%; max-width:300px;
-}
-.modal-content button {
-    padding:10px 20px; border:none; border-radius:5px; background:#4CAF50; color:white; cursor:pointer;
-}
+    body {
+        display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        margin: 0; background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding-bottom: 50px;
+    }
+
+    #gameCanvas {
+        border: 6px solid #333; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        background-color: #e0f7fa;  
+        margin-top: 20px;  
+        margin-bottom: 40px;
+        width: 100%;
+        height: auto;
+        max-width: 700px;
+        max-height: 500px;
+        touch-action: none; /* Dokunmatik kaydırmayı engeller */
+    }
+
+    h1 { color: #333; margin: 20px 0; font-size: 2.5em; }
+
+    #startButton {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        padding: 18px 35px; font-size: 1.6em; background-color: #4CAF50; color: white;
+        border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        transition: background-color 0.3s, transform 0.1s; z-index: 10; opacity: 0.9;
+    }
+    #startButton:hover { background-color: #45a049; opacity: 1; }
+    #startButton:active { transform: translate(-50%, -50%) scale(0.98); }
+
+    .game-container { position: relative; display: inline-block; }
+
+    .content-area {
+        width: 80%; max-width: 900px; text-align: left; padding: 20px;
+        background-color: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    .content-area h2 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; margin-top: 30px; }
+    .content-area p, .content-area ul { color: #555; line-height: 1.6; }
+    .footer { width: 100%; background-color: #333; color: white; text-align: center; padding: 15px 0; margin-top: 50px; font-size: 0.9em; }
+
+    .modal-overlay { 
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
+        display: none; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal-content {
+        background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        text-align: center; width: 300px;
+    }
+    .modal-content h2 { margin-top: 0; color: #D32F2F; }
+    .modal-content button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+
+    #congratsMessage {
+        position: fixed; top: -50px; left: 50%; transform: translateX(-50%); background-color: #FFC107; 
+        color: #333; padding: 10px 20px; border-radius: 5px; font-size: 1.2em; font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); transition: top 0.5s ease-out, opacity 0.5s; z-index: 2000; opacity: 0;
+    }
+    .visible-message { top: 20px !important; opacity: 1 !important; }
 </style>
 </head>
 <body>
 
 <h1>⭐ Oyun.Hub ⭐</h1>
+
 <div id="congratsMessage"></div>
-<button id="startButton">Oyuna Başla</button>
-<canvas id="gameCanvas" width="700" height="500"></canvas>
+
+<div class="game-container">
+    <button id="startButton" onclick="startGame()">Oyuna Başla (Space / Dokun)</button>
+    <canvas id="gameCanvas" width="700" height="500"></canvas>
+</div>
+
+<div class="content-area">
+    <h2>🚀 Hakkımızda</h2>
+    <p><strong>Oyun.Hub</strong>, basit, hızlı ve eğlenceli tarayıcı oyunlarını tek bir merkezde toplamayı amaçlayan bir platformdur.</p>
+    <h2>🛡️ Gizlilik Politikası</h2>
+    <p>Kullanıcı gizliliğine önem verilir. Skorlar sadece LocalStorage’da saklanır.</p>
+    <h2>✉️ İletişim</h2>
+    <p>E-posta: <strong>oyun.hub@gmail.com</strong></p>
+</div>
+
+<div class="footer">
+    © 2025 Oyun.Hub Tüm Hakları Saklıdır.
+</div>
 
 <div id="gameOverModal" class="modal-overlay">
     <div class="modal-content">
         <h2>OYUN BİTTİ!</h2>
         <p id="finalScoreText">Skorunuz: 0</p>
-        <button onclick="restartGame()">Tekrar Oyna</button>
+        <button onclick="restartGame()">Tamam (Tekrar Oyna)</button>
     </div>
 </div>
 
-<audio id="hitSound" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
-<audio id="gameOverSound" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
-
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const startButton = document.getElementById('startButton');
-const congratsMessage = document.getElementById('congratsMessage');
-const gameOverModal = document.getElementById('gameOverModal');
-const finalScoreText = document.getElementById('finalScoreText');
-const hitSound = document.getElementById('hitSound');
-const gameOverSound = document.getElementById('gameOverSound');
+var canvas = document.getElementById("gameCanvas");
+var ctx = canvas.getContext("2d");
+var startButton = document.getElementById("startButton");
+var gameOverModal = document.getElementById("gameOverModal");
+var finalScoreText = document.getElementById("finalScoreText");
+var congratsMessage = document.getElementById("congratsMessage");
 
-let ballRadius=10, paddleHeight=12, INITIAL_PADDLE_WIDTH=120;
-let paddleWidth, paddleX, paddleY=canvas.height - paddleHeight - 15;
-let x, y, dx, dy, score, nextTebrikScore, ballColorHue;
-let rightPressed=false, leftPressed=false, gameStarted=false, gameInterval;
-let highScore = localStorage.getItem('oyunhub_highScore') || 0;
+var ballRadius = 10, paddleHeight = 10, PADDLE_BOTTOM_MARGIN = 15, INITIAL_PADDLE_WIDTH = 120;
+var paddleWidth, x, y, dx, dy, paddleX, score, gameInterval;
+var rightPressed = false, leftPressed = false, nextTebrikScore, ballColorHue;
+var highScore = localStorage.getItem('oyunhub_highScore') || 0;
+var gameStarted = false;
+var paddleY;
 
-// --- Başlangıç ---
-function init(){
+paddleY = canvas.height - paddleHeight - PADDLE_BOTTOM_MARGIN;
+
+function init() {
+    x = canvas.width / 2; y = paddleY - ballRadius;
+    dx = 4; dy = -4;  // Başlangıç hızı arttırıldı
     paddleWidth = INITIAL_PADDLE_WIDTH;
     paddleX = (canvas.width - paddleWidth)/2;
-    x = canvas.width/2; y = paddleY - ballRadius;
-    dx = 4; dy = -4;
-    score=0; nextTebrikScore=100; ballColorHue=200;
-    gameStarted=false;
+    score = 0; nextTebrikScore = 100; ballColorHue = 200;
+    gameStarted = false;
     if(gameInterval) clearInterval(gameInterval);
     ctx.clearRect(0,0,canvas.width,canvas.height);
     gameOverModal.style.display='none';
     congratsMessage.classList.remove('visible-message');
-    drawBall(); drawPaddle(); drawScore();
+    drawBall(); drawPaddle(); drawScoreAndHighScore();
 }
 
-// --- Çizim Fonksiyonları ---
-function drawBall(){ ctx.beginPath(); ctx.arc(x,y,ballRadius,0,Math.PI*2); ctx.fillStyle=`hsl(${ballColorHue},100%,50%)`; ctx.fill(); ctx.closePath(); }
-function drawPaddle(){ ctx.beginPath(); ctx.rect(paddleX,paddleY,paddleWidth,paddleHeight); ctx.fillStyle="#000"; ctx.fill(); ctx.closePath(); }
-function drawScore(){ ctx.font="16px Arial"; ctx.fillStyle="#000"; ctx.fillText("Skor: "+score,8,20); ctx.fillText("En Yüksek Skor: "+highScore,canvas.width-150,20); }
-
-// --- Tebrik mesajı ---
-function showCongratsMessage(currentScore){
-    congratsMessage.textContent=`TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`;
-    congratsMessage.classList.add('visible-message');
-    setTimeout(()=>{ congratsMessage.classList.remove('visible-message'); },3000);
-}
-
-// --- Paddle boyutu dinamik ---
-function updatePaddleSize(){
-    const sizes = [INITIAL_PADDLE_WIDTH, INITIAL_PADDLE_WIDTH*0.7, INITIAL_PADDLE_WIDTH*0.85, INITIAL_PADDLE_WIDTH];
-    const level = Math.floor(score/150);
-    paddleWidth = sizes[level % sizes.length];
-}
-
-// --- Oyunu başlat ---
 function startGame(){
     if(gameStarted) return;
     startButton.style.display='none';
-    gameStarted=true;
-    gameInterval=setInterval(draw,1000/60);
+    gameStarted = true;
+    gameInterval = setInterval(draw,1000/60);
 }
 
-// --- Oyun bitti ---
+document.addEventListener("keydown", function(e){
+    if(e.key===" " && !gameStarted){ e.preventDefault(); startGame(); }
+    if(e.key=="Right" || e.key=="ArrowRight" || e.key=="d" || e.key=="D") rightPressed=true;
+    else if(e.key=="Left" || e.key=="ArrowLeft" || e.key=="a" || e.key=="A") leftPressed=true;
+});
+document.addEventListener("keyup", function(e){
+    if(e.key=="Right" || e.key=="ArrowRight" || e.key=="d" || e.key=="D") rightPressed=false;
+    else if(e.key=="Left" || e.key=="ArrowLeft" || e.key=="a" || e.key=="A") leftPressed=false;
+});
+
+document.addEventListener("mousemove", function(e){
+    if(!gameStarted) return;
+    var relativeX = e.clientX - canvas.getBoundingClientRect().left;
+    if(relativeX>0 && relativeX<canvas.width){ paddleX = relativeX - paddleWidth/2; if(paddleX<0) paddleX=0; if(paddleX+paddleWidth>canvas.width) paddleX=canvas.width-paddleWidth;}
+});
+
+// --- Dokunmatik Paddle ---
+canvas.addEventListener("touchmove", function(e){
+    var touch = e.touches[0];
+    var relativeX = touch.clientX - canvas.getBoundingClientRect().left;
+    if(relativeX>0 && relativeX<canvas.width){
+        paddleX = relativeX - paddleWidth/2;
+        if(paddleX<0) paddleX=0;
+        if(paddleX+paddleWidth>canvas.width) paddleX=canvas.width-paddleWidth;
+    }
+    e.preventDefault();
+}, false);
+
+// --- Dokunmatik Başlat ---
+canvas.addEventListener("touchstart", function(e){ if(!gameStarted) startGame(); }, false);
+
+function drawBall(){ ctx.beginPath(); ctx.arc(x,y,ballRadius,0,Math.PI*2); ctx.fillStyle=`hsl(${ballColorHue},100%,50%)`; ctx.fill(); ctx.closePath(); }
+function drawPaddle(){ ctx.beginPath(); ctx.rect(paddleX,paddleY,paddleWidth,paddleHeight); ctx.fillStyle="#000"; ctx.fill(); ctx.closePath(); }
+function drawScoreAndHighScore(){ ctx.font="16px Arial"; ctx.fillStyle="#000"; ctx.fillText("Skor: "+score,8,20); var hst="En Yüksek Skor: "+highScore; ctx.fillText(hst,canvas.width-ctx.measureText(hst).width-8,20); }
+function showCongratsMessage(currentScore){ congratsMessage.textContent=`TEBRİKLER! ${currentScore} PUANA ULAŞTINIZ!`; congratsMessage.classList.add('visible-message'); setTimeout(()=>{ congratsMessage.classList.remove('visible-message'); },3000); }
+
+function updatePaddleSize(){ 
+    var level=Math.floor(score/150); 
+    var sizes=[INITIAL_PADDLE_WIDTH, INITIAL_PADDLE_WIDTH*0.5, INITIAL_PADDLE_WIDTH*0.75, INITIAL_PADDLE_WIDTH*1]; 
+    paddleWidth=sizes[level%sizes.length]; 
+}
+
 function gameOver(){
     clearInterval(gameInterval);
-    gameOverSound.play();
     if(score>highScore){ highScore=score; localStorage.setItem('oyunhub_highScore',highScore); }
     finalScoreText.textContent="Skorunuz: "+score;
     gameOverModal.style.display='flex';
 }
 
-// --- Tekrar başlat ---
 function restartGame(){ gameOverModal.style.display='none'; startButton.style.display='block'; init(); }
 
-// --- Klavye kontrolleri ---
-document.addEventListener('keydown', e=>{
-    if(e.key==" " && !gameStarted){ e.preventDefault(); startGame(); }
-    if(e.key=="ArrowRight" || e.key=="d") rightPressed=true;
-    if(e.key=="ArrowLeft" || e.key=="a") leftPressed=true;
-});
-document.addEventListener('keyup', e=>{
-    if(e.key=="ArrowRight" || e.key=="d") rightPressed=false;
-    if(e.key=="ArrowLeft" || e.key=="a") leftPressed=false;
-});
-
-// --- Dokunmatik kontroller ---
-let touchX=null;
-canvas.addEventListener('touchstart', e=>{ if(!gameStarted) startGame(); touchX=e.touches[0].clientX; }, false);
-canvas.addEventListener('touchmove', e=>{
-    touchX=e.touches[0].clientX;
-    paddleX = touchX - paddleWidth/2;
-    if(paddleX<0)paddleX=0;
-    if(paddleX+paddleWidth>canvas.width)paddleX=canvas.width-paddleWidth;
-    e.preventDefault();
-}, false);
-canvas.addEventListener('touchend', e=>{ touchX=null; }, false);
-
-// --- Ana döngü ---
 function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // PC Klavye paddle
-    let paddleSpeed=7;
+    var paddleSpeed=7;
     if(rightPressed) paddleX+=paddleSpeed;
-    if(leftPressed) paddleX-=paddleSpeed;
-    if(paddleX<0)paddleX=0;
-    if(paddleX+paddleWidth>canvas.width)paddleX=canvas.width-paddleWidth;
+    else if(leftPressed) paddleX-=paddleSpeed;
+    if(paddleX<0) paddleX=0;
+    if(paddleX+paddleWidth>canvas.width) paddleX=canvas.width-paddleWidth;
 
-    // Top konum
     x+=dx; y+=dy;
 
-    // Kenar çarpışması
     if(x+dx>canvas.width-ballRadius || x+dx<ballRadius) dx=-dx;
     if(y+dy<ballRadius) dy=-dy;
 
-    // Paddle çarpışması
-    if(y+ballRadius>=paddleY && x>paddleX && x<paddleX+paddleWidth){
-        dy=-dy;
-        score+=10;
-        dx*=1.02; dy*=1.02;
-        ballColorHue=(ballColorHue+10)%360;
-        hitSound.play();
-        updatePaddleSize();
-        if(score>=nextTebrikScore && nextTebrikScore<=1000){ showCongratsMessage(nextTebrikScore); nextTebrikScore+=100; }
-    }
-
-    // Oyun bitti kontrol
-    if(y-ballRadius>canvas.height){ gameOver(); return; }
-
-    // Çizim
-    drawBall(); drawPaddle(); drawScore();
-
-    // Harita/efekt değişimleri
-    // Örnek: skor 100 -> uzay efekti
-    if(score>=100 && score<300){
-        ctx.fillStyle='rgba(0,0,50,0.2)';
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        // yıldızlar
-        for(let i=0;i<50;i++){
-            ctx.fillStyle='white';
-            ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height,2,2);
+    if(y+ballRadius>=paddleY && y+ballRadius<=paddleY+paddleHeight){
+        if(x>paddleX-ballRadius && x<paddleX+paddleWidth+ballRadius){
+            if(dy>0){
+                dy=-dy;
+                score+=10;  // Skor 10 10 artıyor
+                dx*=1.02; dy*=1.02;
+                ballColorHue=(ballColorHue+10)%360;
+                updatePaddleSize();
+                if(score>=nextTebrikScore && nextTebrikScore<=1000){
+                    showCongratsMessage(nextTebrikScore);
+                    nextTebrikScore+=100;
+                }
+            }
         }
     }
-    // skor>=300 -> volkan/lava vs eklenebilir
+
+    if(y-ballRadius>canvas.height) { gameOver(); return; }
+
+    drawBall(); drawPaddle(); drawScoreAndHighScore();
 }
 
 init();
